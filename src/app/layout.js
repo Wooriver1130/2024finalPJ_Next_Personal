@@ -1,12 +1,13 @@
 "use client";
 import './globals.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 // zustand store 호출
 import useAuthStore from '../../store/authStore';
-import { Avatar } from '@mui/material';
 import Link from 'next/link';
+import { Avatar, Menu, MenuItem } from '@mui/material';
+
 
 // 부모 컴포넌트
 export default function RootLayout({ children }) {
@@ -54,6 +55,14 @@ export default function RootLayout({ children }) {
       bsCollapseRef.current.hide();
     }
   };
+  const [photo, setPhoto] = useState(null);
+  const [isShow, setIsShow] = useState(false);
+
+  const handlePhotoClick = (e) => {
+    setIsShow(!isShow);
+    isShow ?  setPhoto(null) :  setPhoto(e.currentTarget);
+  }
+
 
   return (
     <html lang="en">
@@ -71,24 +80,35 @@ export default function RootLayout({ children }) {
                     <Link className="nav-link active" href="/" style={{ fontSize: '180%', fontFamily: "Do Hyeon, sans-serif", marginRight: '30px' }} onClick={handleNavLinkClick}>캠핑장소</Link>
                   </li>
                   <li className="nav-item">
-                    <Link className="nav-link active" href="/" style={{ fontSize: '180%', fontFamily: "Do Hyeon, sans-serif", marginRight: '30px' }} onClick={handleNavLinkClick}>캠핑로그</Link>
+                    <Link className="nav-link active" href="/camplog/list" style={{ fontSize: '180%', fontFamily: "Do Hyeon, sans-serif", marginRight: '30px' }} onClick={handleNavLinkClick}>캠핑로그</Link>
                   </li>
                   <li className="nav-item">
                     <Link className="nav-link active" href="/deal" style={{ fontSize: '180%', fontFamily: "Do Hyeon, sans-serif" }} onClick={handleNavLinkClick}>캠핑마켓</Link>
                   </li>
                 </ul>
-                  <Avatar src="/images/kitten-3.jpg" style={{ marginRight: '30px', width: '60px', height: '60px' }} />
-              </div>
+                <Avatar onClick={handlePhotoClick} src="/images/kitten-3.jpg" style={{ marginRight: '30px', width: '60px', height: '60px',  }} />
+                <Menu
+                  anchorEl={photo}
+                  anchorOrigin={{vertical: "bottom", horizontal: 'center'}}  
+                  transformOrigin={{ vertical:"top", horizontal: "center"}}
+                  open={Boolean(photo)}
+                  onClose={() => setPhoto(null)}
+                >
+                  <MenuItem><Link href={"/mycamp/plan "}>나의캠핑</Link></MenuItem>
+                  <MenuItem >마이페이지</MenuItem>
+                  <MenuItem >로그아웃</MenuItem>
+                </Menu>
             </div>
-          </nav>
-        </header>
-        {children}
-        <hr />
-        <footer className="container">
-          <p className="float-end"><a href="#">Back to top</a></p>
-          <p>&copy; 2024-2025 ICT Company, Inc. &middot; <a href="#">Privacy</a> &middot; <a href="#">Terms</a></p>
-        </footer>
-      </body>
-    </html>
+          </div>
+        </nav>
+      </header>
+      {children}
+      <hr />
+      <footer className="container">
+        <p className="float-end"><a href="#">Back to top</a></p>
+        <p>&copy; 2024-2025 ICT Company, Inc. &middot; <a href="#">Privacy</a> &middot; <a href="#">Terms</a></p>
+      </footer>
+    </body>
+    </html >
   );
 }
