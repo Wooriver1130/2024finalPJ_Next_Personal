@@ -6,6 +6,7 @@ function Page(props) {
     return (
         <div>
             <h1>이곳은 캠핑로그 리스트 페이지</h1>
+            <Link href="/camplog/detail/2"><Button variant="contained">detail</Button></Link>
             <Link href="/camplog/write"><Button variant="contained">글쓰기</Button></Link>
         </div>
     );
