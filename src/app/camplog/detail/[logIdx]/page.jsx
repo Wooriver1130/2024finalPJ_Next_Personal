@@ -15,7 +15,7 @@ import './page.css';
 function Page({ params }) {
     const baseUrl = process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL;
     const imgUrl = process.env.NEXT_PUBLIC_LOCAL_IMG_URL;
-    const userIdx = "2";
+    const userIdx = "1";
     const router = useRouter();
     const [isIconHover, setIsIconHover] = useState(false);
     const [data, setData] = useState([]);
@@ -27,21 +27,6 @@ function Page({ params }) {
     const [isModalOpen, setModalOpen] = useState(false);            // 모달 창 열기
     const [reportValue, setReportValue] = useState(1);              // 신고 사유 선택 값
 
-    const commentReport = async (comm) => {
-        const API_URL = `${LOCAL_API_BASE_URL}/camplog/commentReport`;
-        const data = new FormData();
-        try {
-            data.append("logCommentIdx", comm.logCommentIdx);
-
-            // 서버에 저장
-            await axios.post(API_URL, data);
-
-            // 페이지 새로 고침
-            window.location.reload(); // 페이지 새로 고침
-        } catch (error) {
-            alert("댓/답글 신고 오류 : " + error);
-        }
-    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -133,8 +118,15 @@ function Page({ params }) {
         if (confirm("정말 삭제하시겠습니까? ")) {
             const apiUrl = `${baseUrl}/camplog/logDelete?logIdx=${data.logVO.logIdx}`;
             const response = await axios.post(apiUrl);
-
+            if (response.data.success) {
+                router.push(`/camplog/list`);
+            }else {
+                alert(response.data.message)
+            }
         }
+    }
+    const handleLogEdit = () => {
+        router.push(`/camplog/edit/${data.logVO.logIdx}`);
     }
     return (
             <Grid2 container spacing={0} >
@@ -174,7 +166,9 @@ function Page({ params }) {
                                                 <>
                                                     {toggleIcon &&
                                                         <>
-                                                            <div style={{ position: "absolute", transform: "translate(-50%, -50%)", left: "110px", top: "70px", width: "190px", height: "60px", display: "flex", justifyContent: "start", border: "1px solid gray", backgroundColor: "white" }} >
+                                                            <div style={{ position: "absolute", transform: "translate(-50%, -50%)", left: "110px", top: "70px", width: "190px", height: "60px", display: "flex", justifyContent: "start", border: "1px solid gray", backgroundColor: "white" }} 
+                                                                 onClick={handleLogEdit}
+                                                            >
                                                                 <span style={{ color: "gray", margin: "17px 67px 0px 10px", fontWeight: "bold", }}>수정하기</span>
                                                                 <ModeIcon style={{ fontSize: "30px", marginTop: "13px" }} />
                                                             </div>

@@ -2,7 +2,7 @@
 import { Box, Button, FormControl, Grid2, Input, InputLabel, MenuItem, Modal, Paper, Select, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, TextField } from '@mui/material';
 import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import ClearIcon from '@mui/icons-material/Clear';
-import React, { use, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import { ChevronLeft, ChevronRight, Search } from '@mui/icons-material';
@@ -14,7 +14,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { useRouter } from 'next/navigation';
 
-function Page(props) {
+function EditPage({ params }) {
     const baseUrl = process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL;
     const imgUrl = process.env.NEXT_PUBLIC_LOCAL_IMG_URL;
     const [extraFields, setExtraFields] = useState([]);
@@ -44,18 +44,71 @@ function Page(props) {
     const [confirmedCampIdx, setConfirmedCampIdx] = useState(0);
     const [confirmedDealIdx, setConfirmedDealIdx] = useState(0);
     const [showCountForDealList, setShowCountForDealList] = useState(5);
+    const [originalFiles, setOriginalFiles] = useState([]); // 기존 파일들 저장
+    const [deletedFiles, setDeletedFiles] = useState([]); // 삭제된 파일들의 fileIdx 저장
     const router = useRouter();
-    
-    console.log("tags: ", tags);
-    const iscanWrite = () => {
 
-        if (logTitle.length === 0) { // 제목 여부
+    // 기존 데이터 불러오기
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await axios.get(`${baseUrl}/camplog/detail/${params.id}`);
+                if (response.data.success) {
+                    const data = response.data.data;
+
+                    // 기본 정보 설정
+                    setLogTitle(data.logVO.logTitle);
+                    setLogDefaultContent(data.logContentList[0]?.logContent || "");
+                    setConfirmedCampIdx(data.campVO.campIdx);
+                    setCampData([data.campVO]);
+
+                    // 파일 정보 설정
+                    const filesWithContent = data.fileList.map((file, index) => ({
+                        id: Date.now() + index,
+                        file: null,
+                        text: data.logContentList[index + 1]?.logContent || "",
+                        previewImg: `${imgUrl}/${file.fileName}`,
+                        showOverlay: false,
+                        isThumbnail: file.isThumbnail === 1,
+                        fileIdx: file.fileIdx,
+                        originalFile: true
+                    }));
+                    setExtraFields(filesWithContent);
+                    setOriginalFiles(data.fileList);
+
+                    // 태그 정보 설정
+                    if (data.tagList) {
+                        const formattedTags = data.tagList.map(tag => ({
+                            tagX: tag.tagX,
+                            tagY: tag.tagY,
+                            tagId: tag.tagId,
+                            fieldID: filesWithContent[tag.fieldIdx - 1].id,
+                            showContent: false,
+                            text: tag.tagContent,
+                            showModal: false,
+                            fieldIdx: tag.fieldIdx,
+                            dealIdx: tag.dealIdx,
+                            nodeRef: React.createRef()
+                        }));
+                        setTags(formattedTags);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                alert("데이터를 불러오는데 실패했습니다.");
+            }
+        };
+
+        fetchData();
+    }, [params.id]);
+
+    const iscanWrite = () => {
+        if (logTitle.length === 0) {
             return "noTitle"
         }
-        // 제목은 있음
-        if (logDefaultContent.length > 0) { // 기본 텍스트필드 여부
-            if (extraFields.length > 0) { // 추가필드 여부
-                if (isExfieldFilled()) { // 추가필드 비어있는지 여부
+        if (logDefaultContent.length > 0) {
+            if (extraFields.length > 0) {
+                if (isExfieldFilled()) {
                     if (tags.some(tag => tag.text.length === 0)) {
                         return "emptyTag"
                     } else {
@@ -68,7 +121,7 @@ function Page(props) {
             }
         } else if (logDefaultContent.length == 0) {
             if (extraFields.length > 0) {
-                if (isExfieldFilled()) { // 추가필드 비어있는지 여부
+                if (isExfieldFilled()) {
                     return "ok"
                 }
                 return "exEmpty";
@@ -82,6 +135,7 @@ function Page(props) {
             return "ok"
         }
     }
+
     const createNewField = () => {
         if (extraFields.length < 10) {
             setExtraFields([...extraFields, {
@@ -96,14 +150,26 @@ function Page(props) {
             alert("사진은 최대 10장까지만 넣을 수 있습니다.");
         }
     }
+
     const handleFileBtn = (id) => {
         fileRef.current[id].click();
     }
+
     const handleDelField = (delId) => {
-        if (confirm(" 작성했던 글과 사진이 사라집니다. 정말 삭제하시겠습니까?")) {
+        if (confirm("작성했던 글과 사진이 사라집니다. 정말 삭제하시겠습니까?")) {
+            const fieldToDelete = extraFields.find(field => field.id === delId);
+            if (fieldToDelete?.fileIdx) {
+                setDeletedFiles([...deletedFiles, fieldToDelete.fileIdx]);
+            }
             setExtraFields(extraFields.filter((item) => item.id != delId));
+            setTags(tags.filter(tag => tag.fieldID !== delId));
         }
     }
+
+    // 나머지 handler 함수들은 작성 페이지와 동일하게 유지...
+    // handleFileChange, handleImgOverlay, handleAddTag, handleTagContent, 
+    // handleTagDelete, handleTagText, handleTagModal, handleOpenLinkModal,
+    // handleChangeThumbnail, handleExtraContent 등
     const handleFileChange = (id, e) => {
         const file = e.target.files[0];
         if (file) {
@@ -168,7 +234,7 @@ function Page(props) {
         }
 
     }
-    const handleTagContent =  (tagId) => {
+    const handleTagContent = (tagId) => {
         setTags(tags.map(tag => {
             if (tag.tagId === tagId) {
                 if (tag.showContent) {
@@ -261,56 +327,55 @@ function Page(props) {
         })
         );
     }
-    const contentData = [
-        {
-            logContent: logDefaultContent,
-            logContentOrder: 0
-        },
 
-        ...extraFields.map((field, index) => ({
-            logContent: field.text,
-            logContentOrder: index + 1
-        }))
-    ].filter(item => item.logContent != "");
+    const handleUpdate = async () => {
+        if (iscanWrite() === "ok") {
+            const apiUrl = `${baseUrl}/camplog/update/${params.id}`;
 
-    const mpFiles = extraFields.filter(item => item.file != null).map(field => field = field.file);
+            const contentData = [
+                {
+                    logContent: logDefaultContent,
+                    logContentOrder: 0
+                },
+                ...extraFields.map((field, index) => ({
+                    logContent: field.text,
+                    logContentOrder: index + 1
+                }))
+            ].filter(item => item.logContent != "");
 
-    const fileData = [
-        ...extraFields.map((field, index) => {
-            return {
-                fileOrder: index + 1,
-                isThumbnail: field.isThumbnail ? 1 : 0,
-                isFileThere: field.file ? true : false
-            }
-        }).filter(data => data.isFileThere == true)
-    ];
-    const tagData = [
-        ...tags.map(tag => {
-            return {
-                logIdx: 1,
+            const mpFiles = extraFields.filter(item => item.file != null).map(field => field.file);
+
+            const fileData = [
+                ...extraFields.map((field, index) => ({
+                    fileOrder: index + 1,
+                    isThumbnail: field.isThumbnail ? 1 : 0,
+                    isFileThere: field.file || field.originalFile ? true : false,
+                    fileIdx: field.fileIdx
+                })).filter(data => data.isFileThere == true)
+            ];
+
+            const tagData = tags.map(tag => ({
+                logIdx: params.id,
                 fieldIdx: tag.fieldIdx,
                 tagX: tag.tagX,
                 tagY: tag.tagY,
                 tagId: tag.tagId,
                 dealIdx: tag.dealIdx,
                 tagContent: tag.text
-            }
-        })
-    ]
+            }));
 
-    const handleWrite = async () => {
-        if (iscanWrite() === "ok") {
-            const apiUrl = `${baseUrl}/camplog/write`;
-            const writeData = {
+            const updateData = {
                 uvo: { userIdx: "1" },
                 cvo: { campIdx: confirmedCampIdx },
-                lvo: { logTitle: logTitle, logIdx: "1" },
+                lvo: { logTitle: logTitle, logIdx: params.id },
                 lcvo: { contentData: contentData },
                 fvo: fileData.length > 0 ? { fileData: fileData } : null,
                 tvo: tagData.length > 0 ? { tagData: tagData } : null,
-            }
+                deletedFiles: deletedFiles
+            };
+
             const formData = new FormData();
-            formData.append("WriteData", new Blob([JSON.stringify(writeData)], { type: "application/json" }));
+            formData.append("UpdateData", new Blob([JSON.stringify(updateData)], { type: "application/json" }));
             if (mpFiles.length > 0) {
                 mpFiles.forEach((file) => {
                     formData.append("mpFiles", file);
@@ -318,17 +383,16 @@ function Page(props) {
             }
 
             try {
-                const response = await axios.post(apiUrl, formData);
-                console.log("response: ", response);
+                const response = await axios.put(apiUrl, formData);
                 if (response.data.success) {
                     alert(response.data.message);
+                    router.push(`/camplog/detail/${params.id}`);
                 } else {
                     alert(response.data.message);
                 }
-                router.push("/camplog/list");
             } catch (error) {
                 console.error("Error:", error);
-                alert(response.data.message);
+                alert("수정 중 오류가 발생했습니다.");
             }
         } else if (iscanWrite() === "noTitle") {
             alert("제목을 입력해주세요");
@@ -340,7 +404,6 @@ function Page(props) {
             alert("내용이 비어있는 태그가 존재합니다.");
         }
     }
-
     const handleSelectedDealIdx = (dealIdx) => {
         if (selectedDealIdx === dealIdx) {
             setSelectedDealIdx(0)
@@ -435,11 +498,15 @@ function Page(props) {
         setShowCampModal(false);
     }
 
+    // 나머지 JSX 부분은 작성 페이지와 거의 동일하게 유지하되,
+    // 작성 버튼을 수정 버튼으로 변경
     return (
         <>
-            <header >
-                <span style={{ fontSize: "70px", display: "inline-block" }}> </span><span style={{ display: "inline-block", fontSize: "50px", marginLeft: "33%" }}>캠핑로그 작성</span>
+            <header>
+                <span style={{ fontSize: "70px", display: "inline-block" }}> </span>
+                <span style={{ display: "inline-block", fontSize: "50px", marginLeft: "33%" }}>캠핑로그 수정</span>
             </header>
+            {/* 나머지 JSX 구조는 작성 페이지와 동일하게 유지하되 handleWrite를 handleUpdate로 변경 */}
             <Grid2 container spacing={2}>
                 <Grid2 size={1} />
                 <Grid2 size={1}>
@@ -448,20 +515,20 @@ function Page(props) {
                             <style>
                                 {/* 이미지바 스크롤 CSS */}
                                 {`
-                                    div::-webkit-scrollbar {
-                                        width: 6px; 
-                                    }
-                                    div::-webkit-scrollbar-thumb {
-                                        background: #888; /* 스크롤바 색상 */
-                                        border-radius: 3px; 
-                                    }
-                                    div::-webkit-scrollbar-thumb:hover {
-                                        background: #555; 
-                                    }
-                                    div::-webkit-scrollbar-track {
-                                        background: #f1f1f1;  
-                                    }
-                                    `}
+                                                    div::-webkit-scrollbar {
+                                                        width: 6px; 
+                                                    }
+                                                    div::-webkit-scrollbar-thumb {
+                                                        background: #888; /* 스크롤바 색상 */
+                                                        border-radius: 3px; 
+                                                    }
+                                                    div::-webkit-scrollbar-thumb:hover {
+                                                        background: #555; 
+                                                    }
+                                                    div::-webkit-scrollbar-track {
+                                                        background: #f1f1f1;  
+                                                    }
+                                                    `}
                             </style>
                             {extraFields.filter(field => field.previewImg != null).map(field => {
                                 return (
@@ -475,7 +542,7 @@ function Page(props) {
                                                 width: "100px",
                                                 height: "100px",
                                                 cursor: "pointer",
-                                                marginTop:"7px",
+                                                marginTop: "7px",
                                                 objectFit: 'cover',
                                                 border: field.isThumbnail ? "4px solid red" : "none",
                                             }}
@@ -487,10 +554,10 @@ function Page(props) {
                         </div>
                     ) : null}
                 </Grid2>
-                <Grid2 size={6} textAlign={'center'} >
+                <Grid2 size={6} textAlign={'center'}>
                     <Button variant="outlined" style={{ float: "left", marginRight: "10px" }} onClick={() => handleCampModal()}>+ 장소 추가</Button>
                     <span style={{ fontWeight: "bold", fontSize: "20px", float: "left" }}>{campData.filter(camp => camp.campIdx === confirmedCampIdx).map(camp => camp.facltNm)}</span>
-                    <Button variant="contained" style={{ float: "right" }} onClick={handleWrite}>작성</Button>
+                    <Button variant="contained" style={{ float: "right" }} onClick={handleUpdate}>수정</Button>
                     <br />
                     <TextField id="outlined-basic" label="제목을 입력해주세요." value={logTitle} variant="outlined" onChange={(e) => setLogTitle(e.target.value)} style={{ marginTop: "30px" }} fullWidth  inputProps={{ maxLength: 50 }} />
                     <TextField id="outlined-basic" label="내용을 입력해주세요." value={logDefaultContent} variant="outlined" onChange={(e) => setLogDefaultContent(e.target.value)} fullWidth multiline minRows={5} maxRows={20} style={{ marginTop: "20px" }} inputProps={{ maxLength: 1000 }} />
@@ -972,4 +1039,4 @@ function Page(props) {
     );
 }
 
-export default Page;
+export default EditPage;
