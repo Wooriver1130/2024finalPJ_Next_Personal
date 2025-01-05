@@ -45,6 +45,8 @@ function Page(props) {
     const [confirmedDealIdx, setConfirmedDealIdx] = useState(0);
     const [showCountForDealList, setShowCountForDealList] = useState(5);
     const router = useRouter();
+    
+    console.log("tags: ", tags);
     const iscanWrite = () => {
 
         if (logTitle.length === 0) { // 제목 여부
